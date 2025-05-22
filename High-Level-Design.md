@@ -180,7 +180,3 @@ Client ──► REST API (Lightweight HTTP Server)
 - User auth/token-based access for production systems
 
 ---
-
-## 12. Conclusion
-
-This design supports real-time, AI-assisted workspace planning with intelligent desk matching based on employee preferences, organizational constraints, and live sensor data.
