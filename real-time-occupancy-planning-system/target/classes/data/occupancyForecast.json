@@ -1,0 +1,14 @@
+{
+    "forecast": {
+        "area-001": {
+            "morning": 85,
+            "afternoon": 70,
+            "evening": 30
+        },
+        "area-002": {
+            "morning": 90,
+            "afternoon": 65,
+            "evening": 20
+        }
+    }
+}
