@@ -28,6 +28,7 @@ The system consists of:
 
 ## Project Structure
 
+```plaintext
 src/main/java/
 ├── com.example.occupancy
 │ ├── api # HTTP server and handler
@@ -36,6 +37,7 @@ src/main/java/
 │ ├── service # Core business logic modules
 │ └── util # Utility classes (e.g., JSON handling)
 resources/data/ # Static JSON files (inputs)
+```
 
 ---
 
@@ -83,32 +85,47 @@ Place all input JSON files under src/main/resources/data/, including:
 
 ## Set your OpenAI API key (if using NLP) as an environment variable:
 
-- export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxx
+````plaintext
+export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxx
+```
 
 ### How to Run
 
 1. Compile
    If using Maven:
 
-- mvn clean compile
+```plaintext
+mvn clean compile
+````
 
 2. Run the Application
 
-- java -cp target/classes com.example.occupancy.api.Main
-  This starts the HTTP server at http://localhost:8080.
+```plaintext
+java -cp target/classes com.example.occupancy.api.Main
+```
+
+This starts the HTTP server at http://localhost:8080.
 
 3. Test the API
 
-- Send a POST request to /query:
+- Send a POST request to
+
+```plaintext
+/query:
   {
   "nl_query": "Find me an available standing desk on 3rd floor near the marketing team for tomorrow afternoon.",
   "employee_id": "EMP-1001"
   }
+```
+
 - You’ll receive a response like:
+
+```plaintext
   {
   "query": { ... },
   "recommendations": [ { ... }, { ... } ]
   }
+```
 
 ### Extending the System
 
@@ -116,7 +133,3 @@ Place all input JSON files under src/main/resources/data/, including:
 - Swap static JSON files with a database backend
 - Use better NLP prompts or fine-tuning for OpenAI
 - Integrate with employee calendar for availability
-
-```
-
-```
