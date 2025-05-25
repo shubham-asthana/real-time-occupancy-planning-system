@@ -77,8 +77,12 @@ public class DataLoader {
             deskAssignmentRules = JsonUtil.fromJson(ruleStream, new TypeReference<List<DeskAssignmentRule>>() {
             });
 
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to load JSON data", e);
+            InputStream metricStream = getClass().getResourceAsStream("/data/metrics.json");
+            metrics = JsonUtil.fromJson(metricStream, new TypeReference<List<Metric>>() {
+            });
+
+        } catch (IOException ex) {
+            throw new RuntimeException("Failed to load JSON data", ex);
         }
     }
 }

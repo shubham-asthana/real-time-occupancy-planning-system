@@ -30,8 +30,10 @@ public class QueryHandler {
 
         Map<?, ?> requestMap = JsonUtil.fromJson(jsonRequest, Map.class);
         String nlQuery = (String) requestMap.get("nl_query");
+        String empId = (String) requestMap.get("employee_id");
 
         StructuredQuery query = nplService.parseQuery(nlQuery);
+        query.setEmployeeId(empId);
 
         List<Desk> recommendations = deskPlanner.findDesks(query);
 

@@ -9,4 +9,5 @@ public class StructuredQuery {
     private String deskType;
     private String teamZone;
     private TimeWindow timeWindow;
+    private String employeeId;
 }

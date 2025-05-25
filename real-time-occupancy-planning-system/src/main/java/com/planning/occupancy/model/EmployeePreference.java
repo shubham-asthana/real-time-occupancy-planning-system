@@ -20,7 +20,7 @@ public class EmployeePreference {
     private List<String> deskPreferences;
 
     @JsonProperty("equipment_needs")
-    private List<String> equipment_needs;
+    private List<String> equipmentNeeds;
 
     @JsonProperty("preferred_days")
     private List<String> preferredDays;
