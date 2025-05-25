@@ -66,9 +66,10 @@ resources/data/ # Static JSON files (inputs)
     <version>2.15.0</version>
   </dependency>
 </dependencies>
+```
 
+## Configuration
 
-### Configuration
 Place all input JSON files under src/main/resources/data/, including:
 
 - desks.json
@@ -80,33 +81,42 @@ Place all input JSON files under src/main/resources/data/, including:
 - occupancyRecords.json
 - occupancyForecast.json
 
+## Set your OpenAI API key (if using NLP) as an environment variable:
 
-### Set your OpenAI API key (if using NLP) as an environment variable:
 - export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxx
 
 ### How to Run
+
 1. Compile
-If using Maven:
+   If using Maven:
+
 - mvn clean compile
+
 2. Run the Application
+
 - java -cp target/classes com.example.occupancy.api.Main
-This starts the HTTP server at http://localhost:8080.
+  This starts the HTTP server at http://localhost:8080.
+
 3. Test the API
+
 - Send a POST request to /query:
-{
+  {
   "nl_query": "Find me an available standing desk on 3rd floor near the marketing team for tomorrow afternoon.",
   "employee_id": "EMP-1001"
-}
+  }
 - You’ll receive a response like:
-{
+  {
   "query": { ... },
   "recommendations": [ { ... }, { ... } ]
-}
+  }
 
 ### Extending the System
+
 - Add new policy rules: implement PolicyRule, register in PolicyModule
 - Swap static JSON files with a database backend
 - Use better NLP prompts or fine-tuning for OpenAI
 - Integrate with employee calendar for availability
+
+```
 
 ```
