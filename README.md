@@ -85,18 +85,18 @@ Place all input JSON files under src/main/resources/data/, including:
 
 ## Set your OpenAI API key (if using NLP) as an environment variable:
 
-````plaintext
+```plaintext
 export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxx
 ```
 
-### How to Run
+## How to Run
 
 1. Compile
    If using Maven:
 
 ```plaintext
 mvn clean compile
-````
+```
 
 2. Run the Application
 
