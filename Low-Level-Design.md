@@ -1,228 +1,133 @@
-# Low Level Design for AI Enhanced Real Time Occupancy Planning System
+# Low-Level Design (LLD) for AI-Enhanced Real-Time Occupancy Planning System
 
-## 1. Introduction
+## 1. Overview
 
-This document details data models, class designs, service interactions, and method-level logic. The system parses natural language queries to recommend desks based on occupancy, preferences, and policies.
-
----
-
-## 2. Module Overview
-
-### 2.1 NLP Module (`NlpModule`)
-
-- **Purpose:** Parse natural language input into a structured query format using an AI engine.
-- **Key Method:**
-  ```java
-  StructuredQuery parseQuery(String nlQuery);
-  ```
-- **Dependencies:** OpenAI GPT-4 API or equivalent.
+This document describes the detailed class-level architecture and interactions for implementing the intelligent occupancy planning system. It expands upon the HLD and includes class responsibilities, relationships, design patterns used, and UML-like descriptions.
 
 ---
 
-### 2.2 Desk Planner (`DeskPlanner`)
+## 2. Key Classes and Responsibilities
 
-- **Purpose:** Core service to apply filtering, enforce policies, and produce ranked desk recommendations.
-- **Key Method:**
-  ```java
-  List<Desk> findDesks(StructuredQuery query);
-  ```
+### a. `DeskPlanner`
+
+- Central orchestrator for desk recommendation.
+- Injects:
+  - `SpaceRepository`, `DeskRepository`, `SensorRepository`
+  - `OccupancyRepository`, `PreferenceRepository`
+  - `PolicyModule`, `MetricsModule`
+- Methods:
+  - `List<Desk> findDesks(StructuredQuery query)`
+
+### b. `StructuredQuery`
+
+- Holds parsed data from NL query
+  - `Integer floor`
+  - `String deskType`
+  - `String teamZone`
+  - `TimeWindow timeWindow`
+  - `String employeeId`
+
+### c. `PolicyModule`
+
+- Contains rules that implement `PolicyRule` interface
+- Uses Strategy pattern
+- Rules:
+  - `SanitizationRule`
+  - `CapacityLimitRule`
+  - `StandingDeskRule`
+  - `DualMonitorRule`
+  - `AdjacencyRule`
+
+### d. `MetricsModule`
+
+- Calculates:
+  - Occupancy trend for a given time window and area
+  - Utilization rate from historical metrics
+- Uses `OccupancyForecast` and `AreaMetric`
+
+### e. `PreferenceRepository`
+
+- Loads and exposes employee preferences
+- Used for filtering desks by:
+  - Desk type
+  - Equipment needs
+  - Adjacency preferences
+
+### f. `NlpModule`
+
+- Uses OpenAI API to convert NL query to `StructuredQuery`
 
 ---
 
-### 2.3 Policy Module (`PolicyModule`)
+## 3. Class Diagram (Text-Based UML)
 
-- **Purpose:** Apply organizational rules and policies to desk assignments.
-- **Key Method:**
-  ```java
-  boolean isDeskValid(Desk desk, StructuredQuery query, OccupancyForecast forecast, Space floor);
-  ```
+```plaintext
++----------------------+
+|     StructuredQuery  |
++----------------------+
+| - floor: Integer      |
+| - deskType: String    |
+| - teamZone: String    |
+| - timeWindow: TimeWindow |
+| - employeeId: String  |
++----------------------+
 
----
-
-## 3. Data Models
-
-### 3.1 StructuredQuery
-
-```java
-class StructuredQuery {
-  int floor;
-  String deskType;
-  String teamZone;
-  TimeWindow timeWindow;
-}
-
-class TimeWindow {
-  Instant start;
-  Instant end;
-}
++-------------------+          +-------------------+
+|   DeskPlanner     |<>------->|  PolicyModule     |
++-------------------+          +-------------------+
+| +findDesks()      |          | +isDeskValid()    |
++-------------------+          +-------------------+
+        |                            ^
+        v                            |
++-------------------+        +---------------------+
+| MetricsModule     |        |  PolicyRule (IF)    |
++-------------------+        +---------------------+
+| +getTrend()       |        | +validate(...)      |
+| +getUtilRate()    |        +---------------------+
+        |                            ^      ^       ^      ^      ^
+        v                            |      |       |      |      |
++-------------------+     +-----------------------------+ (various rule classes)
+| PreferenceRepo     |     | SanitizationRule, ... etc. |
++-------------------+     +-----------------------------+
 ```
 
 ---
 
-### 3.2 Desk
+## 4. Design Patterns Used
 
-```java
-class Desk {
-  String id;
-  String type;
-  String areaId;
-  int floor;
-  String zone;
-  String locationDescription;
-  List<String> features;
-  String status;
-  Instant lastUsed;
-}
+| Pattern    | Usage                                              |
+| ---------- | -------------------------------------------------- |
+| Strategy   | `PolicyRule` interface with different rule classes |
+| Repository | For static data access (`*Repository.java`)        |
+| Singleton  | `DiskDataLoader` for loading JSON only once        |
+| Facade     | `DeskPlanner` hides complexity of coordination     |
+| DTO        | `StructuredQuery` as a DTO from NLP                |
+
+---
+
+## 5. Interaction Flow
+
+```plaintext
+User → POST /query
+  → QueryHandler
+    → NlpModule.parseQuery(nl_query)
+    → StructuredQuery
+    → DeskPlanner.findDesks(query)
+        → Load desk candidates
+        → Filter by sensor health
+        → Filter by employee preferences
+        → Apply PolicyModule (rules)
+        → Rank using MetricsModule
+        → Return top 3 desks
 ```
 
 ---
 
-### 3.3 Space
+## 6. Extensibility
 
-```java
-class Space {
-  String id;
-  String name;
-  String type; // floor, zone, area
-  int capacity;
-  String parentId;
-}
-```
-
----
-
-### 3.4 OccupancyForecast
-
-```java
-class OccupancyForecast {
-  Map<String, NextDayForecast> nextDay;
-}
-
-class NextDayForecast {
-  int morning;
-  int afternoon;
-  int evening;
-}
-```
-
----
-
-## 4. Class Design
-
-### 4.1 NlpModule
-
-```java
-class NlpModule {
-  StructuredQuery parseQuery(String query) {
-    // Send prompt to LLM and parse JSON response
-  }
-}
-```
-
----
-
-### 4.2 DeskRepository
-
-```java
-class DeskRepository {
-  List<Desk> findAll();
-  List<Desk> findByFloorAndType(int floor, String type);
-}
-```
-
----
-
-### 4.3 SpaceRepository
-
-```java
-class SpaceRepository {
-  List<Space> findAll();
-  List<Space> findByParentId(String parentId);
-  Optional<Space> findByName(String name);
-}
-```
-
----
-
-### 4.4 OccupancyRepository
-
-```java
-class OccupancyRepository {
-  List<OccupancyRecord> getCurrentOccupancy();
-  OccupancyForecast getForecast();
-}
-```
-
----
-
-### 4.5 PolicyModule
-
-```java
-class PolicyModule {
-  boolean isDeskValid(Desk desk, StructuredQuery query, OccupancyForecast forecast, Space floor) {
-    // Enforce policies: capacity, sanitization, etc.
-  }
-}
-```
-
----
-
-## 5. Sequence Diagram (Textual)
-
-```
-Client --> API Handler: sends POST /query
-API Handler --> NlpModule: parseQuery(nl_query)
-NlpModule --> returns StructuredQuery
-
-API Handler --> DeskPlanner: findDesks(structuredQuery)
-DeskPlanner --> SpaceRepository: find floor, zones, areas
-DeskPlanner --> DeskRepository: fetch desks
-DeskPlanner --> OccupancyRepository: fetch forecasts
-DeskPlanner --> PolicyModule: validate desks
-DeskPlanner --> returns ranked desk list
-
-API Handler --> Client: returns JSON with recommendations
-```
-
----
-
-## 6. Error Handling
-
-- **Invalid query:** Return 400 with message.
-- **No matching desks:** Return 200 with empty list.
-- **NLP engine failure:** Return 502 with fallback message.
-
----
-
-## 7. Configuration
-
-- **OpenAI API Key:** Loaded from environment.
-- **Static Data:** Loaded from JSON at startup.
-
----
-
-## 8. Logging
-
-- Log incoming queries
-- Log decisions on desk inclusion/exclusion
-- Log errors and NLP results
-
----
-
-## 9. Security
-
-- Validate and sanitize all user inputs
-- Store API credentials securely
-- Optionally implement token-based authentication
-
----
-
-## 10. Testing Strategy
-
-- Unit tests for each module:
-  - `NlpModule`: Mocked LLM responses
-  - `PolicyModule`: Policy enforcement logic
-  - `DeskPlanner`: End-to-end filtering pipeline
-- Integration tests for API response consistency
+- Add new rules: implement `PolicyRule`, plug into `PolicyModule`
+- Add support for new desk types or areas by updating `desks.json`, `spaces.json`
+- Replace static data with database-backed repositories
+- Swap NLP engine if needed (keep returning `StructuredQuery`)
 
 ---

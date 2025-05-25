@@ -1,182 +1,104 @@
-# High Level Design for AI Enhanced Real Time Occupancy Planning System
+# High-Level Design (HLD) for AI-Enhanced Real-Time Occupancy Planning System
 
-## 1. Overview
+## Overview
 
-This document outlines the high-level design for a prototype AI-enhanced real-time occupancy planning system that allows users to make natural language workspace queries, such as:
+The system is designed to intelligently recommend desks for employees based on real-time occupancy data, employee preferences, organizational policies, and forecasted occupancy trends. It ingests structured space data, sensor input, employee preferences, historical metrics, and policies to generate context-aware recommendations.
 
-> "Find me an available standing desk near the marketing team on the 3rd floor for tomorrow afternoon."
+## Key Components
 
-The system integrates real-time data, employee preferences, organizational policies, and uses an AI-powered NLP engine to interpret and respond to natural language queries.
+### 1. **Data Ingestion Layer**
 
----
+- **Static Data Loaders**
+  - Load from JSON: `spaces.json`, `desks.json`, `sensors.json`, `preferences.json`, `policies.json`, `deskRules.json`, `metrics.json`, `occupancyRecords.json`, `occupancyForecast.json`
+- **Repositories**
+  - Singleton repositories exposing CRUD-like access for each entity type.
 
-## 2. Objectives
+### 2. **Core Services**
 
-- Parse natural language queries using AI tools.
-- Match workspace requirements with real-time desk availability.
-- Apply employee preferences and organizational policies.
-- Recommend optimal desks based on constraints and forecasts.
+#### A. **DeskPlanner**
 
----
+- Orchestrates the filtering and ranking of desks based on:
+  - Floor/team/desk type query
+  - Forecast data
+  - Real-time sensor health
+  - Employee preferences
+  - Policy compliance
+  - Metrics-based ranking (trend + utilization)
 
-## 3. Architecture Diagram
+#### B. **PolicyModule**
 
+- Applies organizational policies as strategy pattern rules:
+  - `SanitizationRule`
+  - `CapacityLimitRule`
+  - `StandingDeskRule`
+  - `DualMonitorRule`
+  - `AdjacencyRule`
+
+#### C. **MetricsModule**
+
+- Computes area-wise occupancy trend using `TimeWindow` and forecast.
+- Extracts historical utilization rate from `metrics.json`.
+
+#### D. **NlpModule**
+
+- Uses OpenAI API to convert natural language queries into `StructuredQuery` objects.
+
+### 3. **API Layer**
+
+- Built on NanoHTTPD (embedded HTTP server)
+- Endpoint: `POST /query`
+  - Payload: `{ "nl_query": "...", "employee_id": "EMP-1001" }`
+  - Response: `{ "query": ..., "recommendations": [...] }`
+
+## Data Model Summary
+
+- **Space**: floors > zones > areas
+- **Desk**: linked to areaId, has type, features, lastUsed
+- **Sensor**: active/inactive per area
+- **OccupancyForecast**: next-day crowd predictions by area and time-bucket
+- **AreaMetric**: historical peak/avg utilization
+- **EmployeePreference**: equipment, desk, adjacency, preferred days
+- **Policy**: definitions of organization rules
+- **DeskAssignmentRule**: codified logic e.g. standing desks only if requested
+
+## Key Algorithms
+
+- **Forecast Mapping**: `TimeWindow` → bucket (morning/afternoon/evening)
+- **Policy Checks**: `PolicyModule.isDeskValid()` with all strategy rules
+- **Preference Matching**: Checks if desk matches window/adjacency/equipment
+- **Sensor Health**: Discard desks in areas with inactive sensors
+- **Ranking**: Desks are sorted by:
+  - Occupancy trend (lower is better)
+  - Utilization rate (lower is better)
+  - Last used timestamp (older is better)
+
+## Deployment & Runtime
+
+- Self-contained Java app
+- No Spring Boot or external frameworks
+- Serves HTTP on configurable port
+- JSON files loaded from `resources/data/`
+
+## Extensibility
+
+- Add new policy rules by implementing `PolicyRule` interface
+- Support more time buckets by expanding `MetricsModule`
+- Replace JSON loading with DB-based loaders in future
+- Extend NLP mapping with richer OpenAI prompt engineering
+
+## System Architecture Diagram
+
+```plaintext
++------------------+       +----------------+       +----------------+
+|  API Server      | <---> | DeskPlanner    | <---> | Repositories   |
+|  (NanoHTTPD)     |       | (Service Layer)|       | (In-Memory)    |
++------------------+       +----------------+       +----------------+
+         |                         |                        |
+         v                         v                        v
+  +----------------+      +-------------------+     +------------------+
+  |  NlpModule     |      |  PolicyModule     |     |  MetricsModule   |
+  | (OpenAI-based) |      | (Rules: strategy) |     | (Forecast, Util) |
+  +----------------+      +-------------------+     +------------------+
 ```
-Client ──► REST API (Lightweight HTTP Server)
-             │
-             ▼
-         NlpModule (LLM)
-             │
-             ▼
-      StructuredQuery (JSON)
-             │
-             ▼
-     DeskPlanner (Filtering Logic)
-     ├── DeskRepository
-     ├── SpaceRepository
-     ├── OccupancyRepository
-     ├── PolicyModule
-     └── PreferenceRepository
-             │
-             ▼
-  Recommendation Response (Top-N desks)
-```
-
----
-
-## 4. Key Components
-
-### 4.1 NLP Module
-
-- **Input:** Natural language query
-- **Output:** Structured query object (e.g. desk type, floor, zone, time window)
-- **Tech:** OpenAI GPT-4 or similar
-
-### 4.2 Occupancy Planner (DeskPlanner)
-
-- Filters desks based on:
-  - Floor and desk type
-  - Availability and forecasted occupancy
-  - Desk assignment rules and policies
-  - Adjacency to teams and zones
-
-### 4.3 Policy Module
-
-- Enforces policies such as:
-  - Social distancing
-  - Desk sanitization delay
-  - Capacity limits
-  - Accessibility preferences
-
-### 4.4 Repositories
-
-- Load and serve static/mock data:
-  - Spaces & Areas (`spaces.json`)
-  - Desks (`desks.json`)
-  - Occupancy data (`occupancy.json`)
-  - Preferences (`employee_preferences.json`)
-  - Policies and rules (`policies.json`, `desk_assignment_rules.json`)
-
----
-
-## 5. Data Flow
-
-1. **User Query** → HTTP POST `/query`
-2. **NLP Parser** → Converts NL query to structured fields
-3. **Data Repositories** → Fetch desks, spaces, forecasts, preferences
-4. **Policy Module** → Apply mandatory constraints
-5. **Ranking Logic** → Score desks by relevance and proximity
-6. **Return JSON Response** with top matching desks
-
----
-
-## 6. Key Data Models
-
-- **Desk**
-  - id, type, areaId, floor, features, status, lastUsed
-- **Space**
-  - id, name, type (floor/zone/area), parentId
-- **Occupancy**
-  - areaId, timestamp, forecast (morning/afternoon/evening)
-- **StructuredQuery**
-  - floor, deskType, teamZone, timeWindow
-- **Policy & DeskAssignmentRule**
-  - id, name, active, enforcement level, rule priority
-
----
-
-## 7. Technology Stack
-
-| Layer       | Technology                |
-| ----------- | ------------------------- |
-| API Server  | Java + Simple HTTP Server |
-| NLP Engine  | OpenAI GPT-4 API          |
-| Data Format | JSON (Mock Datasets)      |
-| HTTP Client | HttpClient                |
-| Build Tool  | Maven                     |
-| Runtime     | Java 11                   |
-
----
-
-## 8. API Contract
-
-**Endpoint:** `POST /query`
-
-**Request Body:**
-
-```json
-{
-  "nl_query": "Find me an available standing desk near the marketing team on the 3rd floor for tomorrow afternoon."
-}
-```
-
-**Response:**
-
-```json
-{
-  "query": {
-    "floor": 3,
-    "deskType": "standing",
-    "teamZone": "marketing-team",
-    "timeWindow": {
-      "start": "2025-05-08T12:00:00Z",
-      "end": "2025-05-08T17:00:00Z"
-    }
-  },
-  "recommendations": [
-    {
-      "deskId": "D-301",
-      "locationDescription": "Near window, east corner",
-      "features": ["dual-monitors", "ergonomic-chair", "adjustable-height"]
-    }
-  ]
-}
-```
-
----
-
-## 9. Assumptions
-
-- Spatial layout and distance calculations are approximate (zone/area-level granularity).
-- Policies like "6 feet distance" are assumed satisfied if forecast occupancy is < 80%.
-- Real-time integration uses mock JSON; in production, this would be via REST API integrations.
-
----
-
-## 10. Future Enhancements
-
-- Integrate desk reservation & booking system
-- Real-time map visualizations
-- Expand NLP support for more complex queries
-- Persist history of queries and assignments
-- Use geospatial coordinates for precise desk adjacency logic
-
----
-
-## 11. Security Considerations
-
-- API keys (e.g. OpenAI) stored securely in environment variables
-- Rate limiting and input validation at the controller layer
-- User auth/token-based access for production systems
 
 ---
